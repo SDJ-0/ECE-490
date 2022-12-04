@@ -18,6 +18,7 @@ class SVDRnn(nn.Module):
         self.sigmas = torch.nn.Parameter(torch.ones(hidden_size, dtype=torch.float32, device=device))
         self.vs = nn.ParameterList([torch.nn.Parameter(torch.ones(i, dtype=torch.float32, device=device)) for i in
                                     range(k2, hidden_size + 1)])
+        self.W = None
 
     def W_SVD(self):
         u_hats = torch.zeros((self.hidden_size - self.k1 + 1, self.hidden_size), dtype=torch.float32,
@@ -49,10 +50,34 @@ class SVDRnn(nn.Module):
         hidden_state = torch.zeros((batch_size, self.hidden_size), dtype=torch.float32, device=self.device)
         output = torch.empty((batch_size, time, self.output_size), device=self.device)
         for t in range(time):
-            hidden_state = torch.sigmoid(self.in2hidden(x[:, t]) + hidden_state @ self.W_SVD().T)
+            self.W = self.W_SVD()
+            hidden_state = torch.sigmoid(self.in2hidden(x[:, t]) + hidden_state @ self.W.T)
             output[:, t] = self.hidden2out(hidden_state)
         return output
 
     def control_sigma(self, r=0.01, sigma_star=1):
         with torch.no_grad():
             self.sigmas.copy_(2 * r * (torch.sigmoid(self.sigmas) - 0.5) + sigma_star)
+
+
+class LSTM(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.rnn = torch.nn.LSTM(input_size, hidden_size, output_size, batch_first=True)
+
+    def forward(self, x):
+        out_rnn, _ = self.rnn(x)
+        return out_rnn
+
+
+class RNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.rnn = torch.nn.RNN(input_size, hidden_size, output_size, batch_first=True)
+        self.out = torch.nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        out_rnn, _ = self.rnn(x)
+        return out_rnn

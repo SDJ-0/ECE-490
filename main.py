@@ -1,24 +1,39 @@
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
 import yaml
 
 import torch
 from torch import nn, optim
 from tqdm import tqdm
-from load import addition_task
-from model import SVDRnn
+from load import addition_task, copy_task
+from model import SVDRnn, LSTM, RNN
+
+
+def visualize(data):
+    plt.plot(np.linspace(0, len(data)), data)
+    plt.show()
 
 
 def train(model, paras):
     optimizer = optim.Adam(model.parameters())
     loss_function = nn.MSELoss()
-    train_data_loader, _ = addition_task(paras[paras['task_name']]['data_dir'],
-                                         batch_size=paras[paras['task_name']]['batch_size'],
-                                         train_num=paras[paras['task_name']]['train_num'],
-                                         test_num=paras[paras['task_name']]['test_num'])
+    if paras['task_name'] == 'addition_task':
+        train_data_loader, _ = addition_task(paras['addition_task']['data_dir'],
+                                             batch_size=paras['addition_task']['batch_size'],
+                                             train_num=paras['addition_task']['train_num'],
+                                             test_num=paras['addition_task']['test_num'])
+    else:
+        train_data_loader, _ = copy_task(paras['copy_task']['data_dir'],
+                                         batch_size=paras['copy_task']['batch_size'],
+                                         train_num=paras['copy_task']['train_num'],
+                                         test_num=paras['copy_task']['test_num'])
     save_dir = paras[paras['task_name']]['save_dir']
 
     model.train()
+    grads_W = []
+    batch_loss = []
     for i in range(paras['epoch']):
         total_loss = []
         for batch in tqdm(train_data_loader):
@@ -29,24 +44,34 @@ def train(model, paras):
             if paras['task_name'] == 'addition_task':
                 y_hat = model(x)[:, -1]
             else:
-                y_hat = model(x)
+                y_hat = model(x)[:, -10:]
             loss = loss_function(y, y_hat)
+            # model.W.register_hook(lambda g: grads_W.append(torch.norm(g).to('cpu')))
             loss.backward()
             optimizer.step()
             model.control_sigma(paras['r'])
-            total_loss.append(loss)
+            # total_loss.append(loss)
+            # batch_loss.append(loss.to('cpu'))
 
         print(f"Epoch: {i}, MSE: {sum(total_loss) / len(total_loss)}")
         torch.save(model.state_dict(), os.path.join(save_dir, f"checkpoint_{i}.pt"))
     torch.save(model.state_dict(), os.path.join(save_dir, f"final.pt"))
+    # visualize(np.array(grads_W))
+    # visualize(np.arraybatch_loss)
 
 
 def evaluate(model, paras):
     loss_function = nn.MSELoss()
-    _, test_data_loader = addition_task(paras[paras['task_name']]['data_dir'],
-                                        batch_size=paras[paras['task_name']]['batch_size'],
-                                        train_num=paras[paras['task_name']]['train_num'],
-                                        test_num=paras[paras['task_name']]['test_num'])
+    if paras['task_name'] == 'addition_task':
+        _, test_data_loader = addition_task(paras['addition_task']['data_dir'],
+                                            batch_size=paras['addition_task']['batch_size'],
+                                            train_num=paras['addition_task']['train_num'],
+                                            test_num=paras['addition_task']['test_num'])
+    else:
+        _, test_data_loader = copy_task(paras['copy_task']['data_dir'],
+                                        batch_size=paras['copy_task']['batch_size'],
+                                        train_num=paras['copy_task']['train_num'],
+                                        test_num=paras['copy_task']['test_num'])
     model.eval()
     total_loss = []
     for batch in tqdm(test_data_loader):
@@ -63,7 +88,7 @@ def evaluate(model, paras):
 
 
 def main():
-    with open('config.yaml', 'r') as f:
+    with open('config/config.yaml', 'r') as f:
         paras = yaml.safe_load(f)
     model = SVDRnn(paras[paras['task_name']]['input_size'],
                    paras['hidden_size'],
@@ -71,13 +96,13 @@ def main():
                    k1=paras['k1'],
                    k2=paras['k2'],
                    device=paras['device'])
-    if paras['eval']:
+    if paras['eval_only']:
         model.load_state_dict(torch.load(paras[paras['task_name']]['model_dir']))
-        evaluate(model, paras)
     else:
         if not paras['train_from_scratch']:
             model.load_state_dict(torch.load(paras[paras['task_name']]['model_dir']))
         train(model, paras)
+    evaluate(model, paras)
 
 
 if __name__ == '__main__':
