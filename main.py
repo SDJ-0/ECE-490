@@ -50,7 +50,7 @@ def train(model, paras):
             loss.backward()
             optimizer.step()
             model.control_sigma(paras['r'])
-            # total_loss.append(loss)
+            total_loss.append(float(loss))
             # batch_loss.append(loss.to('cpu'))
 
         print(f"Epoch: {i}, MSE: {sum(total_loss) / len(total_loss)}")

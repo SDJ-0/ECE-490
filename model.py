@@ -76,7 +76,6 @@ class RNN(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
         self.rnn = torch.nn.RNN(input_size, hidden_size, output_size, batch_first=True)
-        self.out = torch.nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
         out_rnn, _ = self.rnn(x)
