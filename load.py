@@ -57,4 +57,4 @@ def copy_task(filename, batch_size, train_num, test_num):
 
 
 if __name__ == '__main__':
-    copy_task('data/Copy_task/data/data100', 32, 10000, 1000)
+    copy_task('data/copy_task/data/data100', 32, 10000, 1000)

@@ -1,3 +1,4 @@
-data/Adding_task/data/
-data/Copy_task/data/
+data/adding_task/data/
+data/copy_task/data/
 weights/*
+visualization/

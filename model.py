@@ -18,6 +18,11 @@ class SVDRnn(nn.Module):
         self.sigmas = torch.nn.Parameter(torch.ones(hidden_size, dtype=torch.float32, device=device))
         self.vs = nn.ParameterList([torch.nn.Parameter(torch.ones(i, dtype=torch.float32, device=device)) for i in
                                     range(k2, hidden_size + 1)])
+        # self.us = nn.ParameterList([torch.nn.Parameter(torch.ones(i, dtype=torch.float32, device=device)) for i in
+        #                             range(hidden_size, k1 - 1, -1)])
+        # self.sigmas = torch.nn.Parameter(torch.ones(hidden_size, dtype=torch.float32, device=device))
+        # self.vs = nn.ParameterList([torch.nn.Parameter(torch.ones(i, dtype=torch.float32, device=device)) for i in
+        #                             range(hidden_size, k2 - 1, -1)])
         self.W = None
 
     def W_SVD(self):
@@ -40,18 +45,33 @@ class SVDRnn(nn.Module):
         v_hats = torch.flip(v_hats, dims=[0, 1])
         V = torch.eye(self.hidden_size, dtype=torch.float32, device=self.device)
         for v_hat in v_hats:
-            V = V @ (torch.eye(self.hidden_size, dtype=torch.float32, device=self.device)
-                     - 2 / torch.inner(v_hat, v_hat) * torch.outer(v_hat, v_hat))
+            V = (torch.eye(self.hidden_size, dtype=torch.float32, device=self.device)
+                 - 2 / torch.inner(v_hat, v_hat) * torch.outer(v_hat, v_hat)) @ V
 
         return U @ torch.diag(self.sigmas) @ V
+
+    # def W_SVD(self):
+    #     u_hats = torch.zeros((self.hidden_size, self.hidden_size), dtype=torch.float32, device=self.device)
+    #     for i in range(self.hidden_size - self.k1 + 1):
+    #         u_hats[i:, i] = self.us[i]
+    #     U = torch.linalg.householder_product(u_hats,
+    #                                          2 / (torch.sum(u_hats[:, :self.hidden_size - self.k1 + 1] ** 2, dim=0)))
+    #
+    #     v_hats = torch.zeros((self.hidden_size, self.hidden_size), dtype=torch.float32, device=self.device)
+    #     for i in range(self.hidden_size - self.k2 + 1):
+    #         v_hats[i:, i] = self.vs[i]
+    #     V = torch.linalg.householder_product(v_hats,
+    #                                          2 / (torch.sum(v_hats[:, :self.hidden_size - self.k2 + 1] ** 2, dim=0)))
+    #
+    #     return U @ torch.diag(self.sigmas) @ V.T
 
     def forward(self, x):
         batch_size, time = x.shape[:2]
         hidden_state = torch.zeros((batch_size, self.hidden_size), dtype=torch.float32, device=self.device)
         output = torch.empty((batch_size, time, self.output_size), device=self.device)
+        self.W = self.W_SVD()
         for t in range(time):
-            self.W = self.W_SVD()
-            hidden_state = torch.sigmoid(self.in2hidden(x[:, t]) + hidden_state @ self.W.T)
+            hidden_state = torch.tanh(self.in2hidden(x[:, t]) + hidden_state @ self.W.T)
             output[:, t] = self.hidden2out(hidden_state)
         return output
 
@@ -61,22 +81,32 @@ class SVDRnn(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size, output_size, output_length=1):
         super().__init__()
         self.hidden_size = hidden_size
-        self.rnn = torch.nn.LSTM(input_size, hidden_size, output_size, batch_first=True)
+        self.output_length = output_length
+        self.rnn = nn.LSTM(input_size, hidden_size, 1, batch_first=True)
+        self.hidden2out = torch.nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        out_rnn, _ = self.rnn(x)
-        return out_rnn
+        hidden_state, _ = self.rnn(x)
+        out = self.hidden2out(hidden_state)
+        return out
 
 
 class RNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()
         self.hidden_size = hidden_size
-        self.rnn = torch.nn.RNN(input_size, hidden_size, output_size, batch_first=True)
+        self.rnn = nn.RNN(input_size, hidden_size, 16, batch_first=True)
+        self.hidden2out = torch.nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        out_rnn, _ = self.rnn(x)
-        return out_rnn
+        hidden_state, _ = self.rnn(x)
+        out = self.hidden2out(hidden_state)
+        return out
+
+
+if __name__ == '__main__':
+    model = SVDRnn(1, 8, 1, 2, 3)
+    print(model.W_SVD())

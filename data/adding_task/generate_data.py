@@ -5,7 +5,7 @@ import numpy as np
 cwd = os.getcwd()
 
 N = 101000
-L = 100
+L = 5
 
 data_file = os.path.join(cwd, 'data', 'data' + str(L))
 

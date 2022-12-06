@@ -8,16 +8,19 @@ import torch
 from torch import nn, optim
 from tqdm import tqdm
 from load import addition_task, copy_task
-from model import SVDRnn, LSTM, RNN
+from model import SVDRnn
 
 
-def visualize(data):
-    plt.plot(np.linspace(0, len(data)), data)
+def visualize(data, title=None):
+    X = np.arange(0, len(data))
+    if title:
+        plt.title(title)
+    plt.plot(X, data)
     plt.show()
 
 
 def train(model, paras):
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.SGD(model.parameters(), lr=paras['lr'])
     loss_function = nn.MSELoss()
     if paras['task_name'] == 'addition_task':
         train_data_loader, _ = addition_task(paras['addition_task']['data_dir'],
@@ -33,7 +36,7 @@ def train(model, paras):
 
     model.train()
     grads_W = []
-    batch_loss = []
+    losses = []
     for i in range(paras['epoch']):
         total_loss = []
         for batch in tqdm(train_data_loader):
@@ -46,18 +49,23 @@ def train(model, paras):
             else:
                 y_hat = model(x)[:, -10:]
             loss = loss_function(y, y_hat)
-            # model.W.register_hook(lambda g: grads_W.append(torch.norm(g).to('cpu')))
+            model.W.register_hook(lambda g: grads_W.append(torch.norm(g, p=2).to('cpu').detach()))
             loss.backward()
             optimizer.step()
             model.control_sigma(paras['r'])
             total_loss.append(float(loss))
-            # batch_loss.append(loss.to('cpu'))
+            losses.append(float(loss))
 
         print(f"Epoch: {i}, MSE: {sum(total_loss) / len(total_loss)}")
         torch.save(model.state_dict(), os.path.join(save_dir, f"checkpoint_{i}.pt"))
     torch.save(model.state_dict(), os.path.join(save_dir, f"final.pt"))
-    # visualize(np.array(grads_W))
-    # visualize(np.arraybatch_loss)
+    grads_W = np.array(grads_W)
+    losses = np.array(losses)
+    visualize(grads_W, title='gradient')
+    visualize(losses, title='loss')
+
+    np.savetxt(f'visualization/{paras["task_name"]}/SVD_grads', grads_W)
+    np.savetxt(f'visualization/{paras["task_name"]}/SVD_losses', losses)
 
 
 def evaluate(model, paras):
@@ -81,7 +89,7 @@ def evaluate(model, paras):
         if paras['task_name'] == 'addition_task':
             y_hat = model(x)[:, -1]
         else:
-            y_hat = model(x)
+            y_hat = model(x)[:, -10:]
         loss = loss_function(y, y_hat)
         total_loss.append(loss)
     print(f"MSE: {sum(total_loss) / len(total_loss)}")
@@ -122,7 +130,7 @@ if __name__ == '__main__':
     #         'input_size': 2,
     #         'output_size': 1,
     #         'save_dir': 'addition_task_weights',
-    #         'data_dir': 'data/Adding_task/data100',
+    #         'data_dir': 'data/adding_task/data100',
     #         'model_dir': 'addition_task_weights/final.pt',
     #         'train_num': 10000,
     #         'test_num': 1000,

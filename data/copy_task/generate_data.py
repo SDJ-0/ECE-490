@@ -3,8 +3,8 @@ import os
 import numpy as np
 import torch.nn.functional
 
-num = 10100
-T = 100
+num = 101000
+T = 30
 cwd = os.getcwd()
 data_file = os.path.join(cwd, f'data/data{T}')
 Y = np.random.randint(0, 8, size=(num, 10))
