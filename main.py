@@ -39,7 +39,8 @@ def train(model, paras):
     losses = []
     for i in range(paras['epoch']):
         total_loss = []
-        for batch in tqdm(train_data_loader):
+        # for batch in tqdm(train_data_loader):
+        for batch in train_data_loader:
             x, y = batch
             x = x.to(paras['device'])
             y = y.to(paras['device'])
@@ -54,9 +55,9 @@ def train(model, paras):
             optimizer.step()
             model.control_sigma(paras['r'])
             total_loss.append(float(loss))
-            losses.append(float(loss))
 
         print(f"Epoch: {i}, MSE: {sum(total_loss) / len(total_loss)}")
+        losses.append(sum(total_loss) / len(total_loss))
         torch.save(model.state_dict(), os.path.join(save_dir, f"checkpoint_{i}.pt"))
     torch.save(model.state_dict(), os.path.join(save_dir, f"final.pt"))
     grads_W = np.array(grads_W)

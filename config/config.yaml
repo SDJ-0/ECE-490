@@ -1,23 +1,23 @@
 addition_task:
   batch_size: 256
-  data_dir: data/adding_task/data/data30
+  data_dir: data/adding_task/data/data10
   input_size: 2
-  model_dir: addition_task_weights/data30/final.pt
+  model_dir: weights/addition_task_weights/data10/final.pt
   output_size: 1
   save_dir: weights/addition_task_weights/data30
   test_num: 1000
   train_num: 50000
 copy_task:
   batch_size: 256
-  data_dir: data/copy_task/data/data100
+  data_dir: data/copy_task/data/data30
   input_size: 10
-  model_dir: weights/copy_task_weights/data100/final.pt
+  model_dir: weights/copy_task_weights/data30/final.pt
   output_size: 10
-  save_dir: weights/copy_task_weights/data100
+  save_dir: weights/copy_task_weights/data30
   test_num: 1000
   train_num: 50000
 device: cuda
-epoch: 50
+epoch: 1000
 eval_only: false
 hidden_size: 128
 k1: 1

@@ -36,7 +36,8 @@ def train(model, paras):
     losses = []
     for i in range(paras['epoch']):
         total_loss = []
-        for batch in tqdm(train_data_loader):
+        # for batch in tqdm(train_data_loader):
+        for batch in train_data_loader:
             x, y = batch
             x = x.to(paras['device'])
             y = y.to(paras['device'])
@@ -51,17 +52,15 @@ def train(model, paras):
             grads.append(torch.norm(model.rnn.weight_hh_l0.grad, p=2).to('cpu').detach())
             optimizer.step()
             total_loss.append(float(loss))
-            losses.append(loss.to('cpu').detach())
 
         print(f"Epoch: {i}, MSE: {sum(total_loss) / len(total_loss)}")
+        losses.append(sum(total_loss) / len(total_loss))
     grads = np.array(grads)
     losses = np.array(losses)
     visualize(grads)
     visualize(losses)
-    np.savetxt(f'visualization/{paras["task_name"]}/RNN_grads', grads)
-    np.savetxt(f'visualization/{paras["task_name"]}/RNN_losses', losses)
-    # np.savetxt(f'visualization/{paras["task_name"]}/LSTM_grads', grads)
-    # np.savetxt(f'visualization/{paras["task_name"]}/LSTM_losses', losses)
+    np.savetxt(f'visualization/{paras["task_name"]}/{name}_grads', grads)
+    np.savetxt(f'visualization/{paras["task_name"]}/{name}_losses', losses)
 
 
 def evaluate(model, paras):
@@ -92,8 +91,10 @@ def evaluate(model, paras):
 
 
 def main():
-    # rnn = LSTM
-    rnn = RNN
+    if name == 'RNN':
+        rnn = RNN
+    else:
+        rnn = LSTM
     with open('config/config.yaml', 'r') as f:
         paras = yaml.safe_load(f)
     model = rnn(paras[paras['task_name']]['input_size'],
@@ -105,4 +106,6 @@ def main():
 
 
 if __name__ == '__main__':
+    # name = 'RNN'
+    name = 'LSTM'
     main()
